@@ -1,0 +1,52 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Helper function
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    function isValidImageType() {
+      return request.resource.contentType.matches('image/.*');
+    }
+    
+    function isValidDocumentType() {
+      return request.resource.contentType.matches('image/.*') 
+          || request.resource.contentType.matches('application/pdf');
+    }
+    
+    function isUnder10MB() {
+      return request.resource.size < 10 * 1024 * 1024;
+    }
+    
+    // Profile photos
+    match /profile/{userId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId) 
+                   && isValidImageType() 
+                   && isUnder10MB();
+    }
+    
+    // Absensi selfie photos
+    match /absensi/{userId}/{date}/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId) 
+                   && isValidImageType() 
+                   && isUnder10MB();
+    }
+    
+    // Pengajuan documents (cuti/izin)
+    match /pengajuan/{userId}/{pengajuanId}/{fileName} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId) 
+                   && isValidDocumentType() 
+                   && isUnder10MB();
+    }
+  }
+}

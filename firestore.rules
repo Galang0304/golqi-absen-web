@@ -1,0 +1,82 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // DEVELOPMENT MODE: Full access untuk authenticated users
+    // IMPORTANT: Ganti rules ini dengan yang lebih ketat untuk production!
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
+
+// PRODUCTION RULES (uncomment when ready for production):
+/*
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && getUserRole() == 'admin';
+    }
+    
+    function isHRD() {
+      return isAuthenticated() && getUserRole() == 'hrd';
+    }
+    
+    function isHRDOrAdmin() {
+      return isHRD() || isAdmin();
+    }
+    
+    // Users collection
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isAdmin();
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+    
+    // Shifts collection
+    match /shifts/{shiftId} {
+      allow read: if isAuthenticated();
+      allow write: if isHRDOrAdmin();
+    }
+    
+    // Absensi collection
+    match /absensi/{absensiId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isOwner(resource.data.userId) || isHRDOrAdmin();
+      allow delete: if isHRDOrAdmin();
+    }
+    
+    // Pengajuan collection
+    match /pengajuan/{pengajuanId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isOwner(resource.data.userId) || isHRDOrAdmin();
+      allow delete: if isOwner(resource.data.userId) || isAdmin();
+    }
+    
+    // Notifications collection
+    match /notifications/{notificationId} {
+      allow read: if isOwner(resource.data.userId);
+      allow create: if isAuthenticated();
+      allow update: if isOwner(resource.data.userId);
+      allow delete: if isOwner(resource.data.userId) || isAdmin();
+    }
+  }
+}
+*/

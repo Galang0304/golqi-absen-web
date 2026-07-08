@@ -39,3 +39,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# firebase
+firebase-debug.log*
+firestore-debug.log*
+.firebase/
+
+# personal documents (jangan di-commit)
+*.pdf
