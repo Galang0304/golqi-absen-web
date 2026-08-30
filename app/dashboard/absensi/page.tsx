@@ -22,6 +22,8 @@ interface AbsensiRow {
   hasLokasi: boolean;
   shift: string;
   fotoClockIn?: string;
+  faceVerified?: boolean;
+  faceScore?: number;
   lat?: number;
   lng?: number;
 }
@@ -88,6 +90,8 @@ export default function AbsensiPage() {
             hasLokasi: !!a.lokasiClockIn,
             shift: a.shift || '—',
             fotoClockIn: a.fotoClockIn,
+            faceVerified: a.faceVerified ?? false,
+            faceScore: a.faceScore,
             lat: a.lokasiClockIn?.latitude,
             lng: a.lokasiClockIn?.longitude,
           };
@@ -290,6 +294,7 @@ export default function AbsensiPage() {
                 <th className="px-6 py-4">Shift</th>
                 <th className="px-6 py-4">Jam Masuk</th>
                 <th className="px-6 py-4">Status</th>
+                <th className="px-6 py-4">Wajah</th>
                 <th className="px-6 py-4">Lokasi & GPS</th>
                 <th className="px-6 py-4 text-right">Aksi / Detail</th>
               </tr>
@@ -329,6 +334,20 @@ export default function AbsensiPage() {
                       }`}>
                         {row.status}
                       </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      {row.faceVerified ? (
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-emerald-600 font-bold flex items-center gap-1">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500"></span> Terverifikasi
+                          </span>
+                          {row.faceScore != null && (
+                            <span className="text-[10px] text-emerald-500 font-medium">skor {(row.faceScore * 100).toFixed(1)}%</span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-slate-400 text-[10px] font-medium">—</span>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex flex-col gap-0.5">
@@ -516,6 +535,23 @@ export default function AbsensiPage() {
               ) : (
                 <div className="h-24 rounded-xl border border-dashed border-slate-200 bg-slate-50 flex items-center justify-center text-xs text-slate-400">
                   Belum ada foto (absen manual / app belum kirim)
+                </div>
+              )}
+            </div>
+
+            {/* Verifikasi Wajah */}
+            <div>
+              <p className="text-xs font-semibold text-slate-600 mb-1.5">Verifikasi Wajah</p>
+              {detailTarget.faceVerified ? (
+                <div className="flex items-center gap-2 p-3 rounded-xl bg-emerald-50 border border-emerald-200">
+                  <span className="text-emerald-600 font-bold text-sm">✓ Wajah terverifikasi</span>
+                  {detailTarget.faceScore != null && (
+                    <span className="text-emerald-500 text-xs">(skor: {(detailTarget.faceScore * 100).toFixed(1)}%)</span>
+                  )}
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 p-3 rounded-xl bg-slate-50 border border-slate-200">
+                  <span className="text-slate-400 text-sm">Belum ada verifikasi wajah</span>
                 </div>
               )}
             </div>

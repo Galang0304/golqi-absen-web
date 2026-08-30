@@ -116,6 +116,9 @@ export interface Absensi {
   // Clock In
   clockIn?: Timestamp;
   fotoClockIn?: string;
+  faceVerified?: boolean;
+  faceScore?: number;
+  faceMargin?: number;
   lokasiClockIn?: {
     latitude: number;
     longitude: number;

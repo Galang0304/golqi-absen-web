@@ -6,6 +6,7 @@ import { db, createKaryawanAuthAccount, auth } from '@/lib/firebase';
 import { COLLECTIONS } from '@/lib/firestore-collections';
 import { setDocument, updateDocument, deleteDocument } from '@/lib/firestore-helpers';
 import Modal from '@/components/dashboard/Modal';
+import FaceUploader from '@/components/dashboard/FaceUploader';
 import type { Shift, Outlet } from '@/types';
 
 interface LeaderRow {
@@ -20,6 +21,8 @@ interface LeaderRow {
   jadwalKerja: string[];
   bergabung: string;
   profileComplete: boolean;
+  faceTemplates: number[][];
+  fotoWajah?: string;
 }
 
 const STATUS_OPTIONS = ['Aktif', 'Cuti', 'Non-aktif'];
@@ -35,6 +38,7 @@ const emptyForm = {
   status: 'Aktif',
   gajiPokok: 0,
   jadwalKerja: ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'] as string[],
+  faceTemplates: null as number[][] | null,
 };
 
 export default function LeaderPage() {
@@ -64,6 +68,8 @@ export default function LeaderPage() {
             nama?: string; email?: string; noHp?: string; cabang?: string;
             status?: string; shift?: string; gajiPokok?: number; jadwalKerja?: string[];
             createdAt?: { toDate?: () => Date }; profileComplete?: boolean;
+            faceTemplates?: number[][];
+            fotoWajah?: string;
           };
           return {
             id: d.id,
@@ -77,6 +83,8 @@ export default function LeaderPage() {
             jadwalKerja: Array.isArray(u.jadwalKerja) ? u.jadwalKerja : [],
             bergabung: u.createdAt?.toDate?.().toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) || '—',
             profileComplete: u.profileComplete ?? false,
+            faceTemplates: Array.isArray(u.faceTemplates) ? u.faceTemplates : [],
+            fotoWajah: u.fotoWajah || '',
           };
         });
         rows.sort((a, b) => a.nama.localeCompare(b.nama));
@@ -136,6 +144,7 @@ export default function LeaderPage() {
       status: k.status,
       gajiPokok: k.gajiPokok,
       jadwalKerja: k.jadwalKerja.length > 0 ? k.jadwalKerja : [...emptyForm.jadwalKerja],
+      faceTemplates: k.faceTemplates?.length > 0 ? k.faceTemplates : null,
     });
     setErrors({});
     setModalOpen(true);
@@ -172,6 +181,7 @@ export default function LeaderPage() {
           gajiPokok: Number(form.gajiPokok) || 0,
           jadwalKerja: form.jadwalKerja,
           profileComplete: !!form.noHp.trim(),
+          ...(form.faceTemplates ? { faceTemplates: form.faceTemplates } : {}),
         });
         setModalOpen(false);
       } catch (err) {
@@ -198,6 +208,7 @@ export default function LeaderPage() {
         gajiPokok: Number(form.gajiPokok) || 0,
         jadwalKerja: form.jadwalKerja,
         profileComplete: !!form.noHp.trim(),
+        ...(form.faceTemplates ? { faceTemplates: form.faceTemplates } : {}),
       });
       setModalOpen(false);
     } catch (err: unknown) {
@@ -257,6 +268,20 @@ export default function LeaderPage() {
       alert('Gagal menghubungi server.');
     } finally {
       setResetting(false);
+    }
+  };
+
+  const handleResetFace = async (k: LeaderRow) => {
+    if (!confirm(`Izinkan ${k.nama} registrasi ulang wajah? Setelah ini, karyawan bisa daftar wajah baru sekali, lalu terkunci lagi.`)) return;
+    setSaving(true);
+    try {
+      await updateDocument(COLLECTIONS.USERS, k.id, { faceRegAllowed: true });
+      alert(`✓ ${k.nama} diizinkan registrasi ulang wajah.`);
+    } catch (err) {
+      console.error('reset face error:', err);
+      alert('Gagal reset wajah.');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -336,6 +361,11 @@ export default function LeaderPage() {
                           <p className="font-semibold text-slate-800">{k.nama}</p>
                           <p className="text-[10px] text-slate-400 mt-0.5">{k.email}</p>
                           <p className="text-[10px] text-slate-400 mt-0.5">Bergabung {k.bergabung}</p>
+                          {k.faceTemplates && k.faceTemplates.length > 0 ? (
+                            <span className="inline-block mt-1 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-600 text-[10px] font-bold">✓ Wajah terdaftar</span>
+                          ) : (
+                            <span className="inline-block mt-1 px-1.5 py-0.5 rounded bg-rose-50 text-rose-500 text-[10px] font-bold">Wajah belum didaftarkan</span>
+                          )}
                         </div>
                       </div>
                     </td>
@@ -352,6 +382,11 @@ export default function LeaderPage() {
                         <button onClick={() => { setResetTarget(k); setNewPassword(''); }} className="p-1.5 rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition cursor-pointer" title="Set password baru">
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
                         </button>
+                        {k.faceTemplates && k.faceTemplates.length > 0 && (
+                          <button onClick={() => handleResetFace(k)} className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition cursor-pointer" title="Reset Wajah (izinkan registrasi ulang)">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                          </button>
+                        )}
                         <button onClick={() => openEdit(k)} className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition cursor-pointer" title="Edit">
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                         </button>
@@ -397,6 +432,11 @@ export default function LeaderPage() {
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       <span className="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-slate-100 text-slate-600">{k.cabang}</span>
                       <span className="px-2 py-0.5 rounded-lg text-[10px] font-semibold bg-slate-100 text-slate-600">{k.shift}</span>
+                      {k.faceTemplates && k.faceTemplates.length > 0 ? (
+                        <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-emerald-50 text-emerald-600">✓ Wajah</span>
+                      ) : (
+                        <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-rose-50 text-rose-500">Wajah?</span>
+                      )}
                     </div>
 
                     <div className="mt-2 text-[11px]">
@@ -408,6 +448,9 @@ export default function LeaderPage() {
 
                     <div className="mt-3 flex gap-2">
                       <button onClick={() => { setResetTarget(k); setNewPassword(''); }} className="flex-1 flex items-center justify-center text-[11px] font-semibold text-amber-600 bg-amber-50 hover:bg-amber-100 rounded-lg py-1.5 transition cursor-pointer">Password</button>
+                      {k.faceTemplates && k.faceTemplates.length > 0 && (
+                        <button onClick={() => handleResetFace(k)} className="flex-1 flex items-center justify-center text-[11px] font-semibold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-lg py-1.5 transition cursor-pointer">Reset Wajah</button>
+                      )}
                       <button onClick={() => openEdit(k)} className="flex-1 flex items-center justify-center text-[11px] font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg py-1.5 transition cursor-pointer">Edit</button>
                       <button onClick={() => setDeleteTarget(k)} className="flex-1 flex items-center justify-center text-[11px] font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-lg py-1.5 transition cursor-pointer">Hapus</button>
                     </div>
@@ -459,6 +502,10 @@ export default function LeaderPage() {
             <label className="block text-xs font-semibold text-slate-600 mb-1.5">Nomor HP <span className="text-slate-400 font-normal">(opsional)</span></label>
             <input type="tel" value={form.noHp} onChange={(e) => setField('noHp', e.target.value)} className={inputCls()} placeholder="08xxxxxxxxxx" />
           </div>
+          <FaceUploader
+            value={form.faceTemplates}
+            onChange={(templates) => setForm((prev) => ({ ...prev, faceTemplates: templates }))}
+          />
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1.5">Gaji Pokok / bulan <span className="text-rose-500">*</span></label>
             <div className="relative">
