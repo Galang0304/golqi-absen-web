@@ -13,7 +13,8 @@ declare global {
 
 type Props = {
   value: number[][] | null;        // faceTemplates yang sudah ada
-  onChange: (templates: number[][] | null) => void;
+  fotoUrl?: string;                // foto wajah yang sudah di-upload
+  onChange: (templates: number[][] | null, fotoUrl?: string) => void;
   disabled?: boolean;
 };
 
@@ -130,7 +131,7 @@ async function embeddingFromImage(img: HTMLImageElement, engine: { faceDetector:
   return embedding as number[];
 }
 
-export default function FaceUploader({ value, onChange, disabled }: Props) {
+export default function FaceUploader({ value, fotoUrl, onChange, disabled }: Props) {
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string>('');
   const [preview, setPreview] = useState<string | null>(null);
@@ -154,9 +155,20 @@ export default function FaceUploader({ value, onChange, disabled }: Props) {
       const img = await loadImage(file);
       const embedding = await embeddingFromImage(img, engine);
       // Simpan 1 template (admin upload 1 pose)
-      onChange([embedding]);
+      let fotoUrl = '';
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('folder', 'golqi-absensi/wajah');
+        const res = await fetch('/api/upload', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (res.ok && data.secure_url) fotoUrl = data.secure_url;
+      } catch (upErr) {
+        console.warn('gagal upload foto:', upErr);
+      }
+      onChange([embedding], fotoUrl);
       setPreview(URL.createObjectURL(file));
-      setStatus('✅ Wajah terdeteksi & template tersimpan');
+      setStatus('✅ Wajah terdeteksi & terdaftar');
     } catch (err: any) {
       console.error(err);
       onChange(null);
@@ -190,6 +202,9 @@ export default function FaceUploader({ value, onChange, disabled }: Props) {
           {preview ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={preview} alt="Wajah" className="w-full h-full object-cover" />
+          ) : fotoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={fotoUrl} alt="Wajah terdaftar" className="w-full h-full object-cover" />
           ) : value && value.length > 0 ? (
             <span className="text-2xl">😀</span>
           ) : (

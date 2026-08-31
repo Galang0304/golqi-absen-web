@@ -23,10 +23,27 @@ interface LeaderRow {
   profileComplete: boolean;
   faceTemplates: number[][];
   fotoWajah?: string;
+  faceRegisteredAt?: string;
 }
 
 const STATUS_OPTIONS = ['Aktif', 'Cuti', 'Non-aktif'];
 const HARI_OPTIONS = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
+
+/** Konversi faceTemplates (bisa array lama atau map baru) ke array untuk komponen. */
+function normalizeFaceTemplates(raw: any): number[][] {
+  if (!raw) return [];
+  if (Array.isArray(raw)) return raw as number[][];
+  if (typeof raw === 'object') return Object.values(raw);
+  return [];
+}
+
+/** Konversi array ke map (Firestore tidak mendukung nested array). */
+function toFaceTemplatesMap(templates: number[][] | null): Record<string, number[]> | undefined {
+  if (!templates || templates.length === 0) return undefined;
+  const map: Record<string, number[]> = {};
+  templates.forEach((t, i) => { map[String(i)] = t; });
+  return map;
+}
 
 const emptyForm = {
   nama: '',
@@ -39,6 +56,7 @@ const emptyForm = {
   gajiPokok: 0,
   jadwalKerja: ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'] as string[],
   faceTemplates: null as number[][] | null,
+  fotoWajah: '',
 };
 
 export default function LeaderPage() {
@@ -58,6 +76,7 @@ export default function LeaderPage() {
   const [resetTarget, setResetTarget] = useState<LeaderRow | null>(null);
   const [newPassword, setNewPassword] = useState('');
   const [resetting, setResetting] = useState(false);
+  const [faceDetail, setFaceDetail] = useState<LeaderRow | null>(null);
 
   useEffect(() => {
     const unsubUsers = onSnapshot(
@@ -68,8 +87,9 @@ export default function LeaderPage() {
             nama?: string; email?: string; noHp?: string; cabang?: string;
             status?: string; shift?: string; gajiPokok?: number; jadwalKerja?: string[];
             createdAt?: { toDate?: () => Date }; profileComplete?: boolean;
-            faceTemplates?: number[][];
+            faceTemplates?: number[][] | Record<string, number[]>;
             fotoWajah?: string;
+            faceRegisteredAt?: { toDate?: () => Date };
           };
           return {
             id: d.id,
@@ -83,8 +103,9 @@ export default function LeaderPage() {
             jadwalKerja: Array.isArray(u.jadwalKerja) ? u.jadwalKerja : [],
             bergabung: u.createdAt?.toDate?.().toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) || '—',
             profileComplete: u.profileComplete ?? false,
-            faceTemplates: Array.isArray(u.faceTemplates) ? u.faceTemplates : [],
+            faceTemplates: normalizeFaceTemplates(u.faceTemplates),
             fotoWajah: u.fotoWajah || '',
+            faceRegisteredAt: u.faceRegisteredAt?.toDate?.().toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
           };
         });
         rows.sort((a, b) => a.nama.localeCompare(b.nama));
@@ -145,6 +166,7 @@ export default function LeaderPage() {
       gajiPokok: k.gajiPokok,
       jadwalKerja: k.jadwalKerja.length > 0 ? k.jadwalKerja : [...emptyForm.jadwalKerja],
       faceTemplates: k.faceTemplates?.length > 0 ? k.faceTemplates : null,
+      fotoWajah: k.fotoWajah || '',
     });
     setErrors({});
     setModalOpen(true);
@@ -181,7 +203,12 @@ export default function LeaderPage() {
           gajiPokok: Number(form.gajiPokok) || 0,
           jadwalKerja: form.jadwalKerja,
           profileComplete: !!form.noHp.trim(),
-          ...(form.faceTemplates ? { faceTemplates: form.faceTemplates } : {}),
+          ...(toFaceTemplatesMap(form.faceTemplates) ? {
+            faceTemplates: toFaceTemplatesMap(form.faceTemplates),
+            fotoWajah: form.fotoWajah || '',
+            faceRegisteredAt: new Date(),
+            faceRegAllowed: false,
+          } : {}),
         });
         setModalOpen(false);
       } catch (err) {
@@ -208,7 +235,12 @@ export default function LeaderPage() {
         gajiPokok: Number(form.gajiPokok) || 0,
         jadwalKerja: form.jadwalKerja,
         profileComplete: !!form.noHp.trim(),
-        ...(form.faceTemplates ? { faceTemplates: form.faceTemplates } : {}),
+        ...(toFaceTemplatesMap(form.faceTemplates) ? {
+          faceTemplates: toFaceTemplatesMap(form.faceTemplates),
+          fotoWajah: form.fotoWajah || '',
+          faceRegisteredAt: new Date(),
+          faceRegAllowed: false,
+        } : {}),
       });
       setModalOpen(false);
     } catch (err: unknown) {
@@ -272,11 +304,16 @@ export default function LeaderPage() {
   };
 
   const handleResetFace = async (k: LeaderRow) => {
-    if (!confirm(`Izinkan ${k.nama} registrasi ulang wajah? Setelah ini, karyawan bisa daftar wajah baru sekali, lalu terkunci lagi.`)) return;
+    if (!confirm(`Reset wajah ${k.nama}? Template & foto wajah lama akan dihapus. Karyawan harus daftar wajah baru lagi.`)) return;
     setSaving(true);
     try {
-      await updateDocument(COLLECTIONS.USERS, k.id, { faceRegAllowed: true });
-      alert(`✓ ${k.nama} diizinkan registrasi ulang wajah.`);
+      await updateDocument(COLLECTIONS.USERS, k.id, {
+        faceTemplates: null,
+        fotoWajah: '',
+        faceRegisteredAt: null,
+        faceRegAllowed: true,
+      });
+      alert(`✓ Wajah ${k.nama} di-reset. Karyawan wajib daftar ulang di app.`);
     } catch (err) {
       console.error('reset face error:', err);
       alert('Gagal reset wajah.');
@@ -354,15 +391,26 @@ export default function LeaderPage() {
                   <tr key={k.id} className="hover:bg-slate-50/30 transition">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 bg-rose-50 border border-rose-100 text-rose-600 font-bold rounded-xl flex items-center justify-center">
-                          {k.nama.charAt(0).toUpperCase()}
+                        <div className="w-9 h-9 bg-rose-50 border border-rose-100 text-rose-600 font-bold rounded-xl flex items-center justify-center overflow-hidden flex-shrink-0">
+                          {k.fotoWajah ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={k.fotoWajah} alt="Foto wajah" className="w-full h-full object-cover" title="Foto wajah terdaftar" />
+                          ) : (
+                            k.nama.charAt(0).toUpperCase()
+                          )}
                         </div>
                         <div>
                           <p className="font-semibold text-slate-800">{k.nama}</p>
                           <p className="text-[10px] text-slate-400 mt-0.5">{k.email}</p>
                           <p className="text-[10px] text-slate-400 mt-0.5">Bergabung {k.bergabung}</p>
                           {k.faceTemplates && k.faceTemplates.length > 0 ? (
-                            <span className="inline-block mt-1 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-600 text-[10px] font-bold">✓ Wajah terdaftar</span>
+                            <span className="inline-flex items-center gap-1 mt-1 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-600 text-[10px] font-bold">
+                              {k.fotoWajah && (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={k.fotoWajah} alt="Wajah" className="w-4 h-4 rounded object-cover border border-emerald-200" />
+                              )}
+                              ✓ Wajah terdaftar ({k.faceTemplates.length} pose)
+                            </span>
                           ) : (
                             <span className="inline-block mt-1 px-1.5 py-0.5 rounded bg-rose-50 text-rose-500 text-[10px] font-bold">Wajah belum didaftarkan</span>
                           )}
@@ -379,6 +427,11 @@ export default function LeaderPage() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2">
+                        {k.faceTemplates && k.faceTemplates.length > 0 && (
+                          <button onClick={() => setFaceDetail(k)} className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition cursor-pointer" title="Lihat Detail Wajah">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                          </button>
+                        )}
                         <button onClick={() => { setResetTarget(k); setNewPassword(''); }} className="p-1.5 rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition cursor-pointer" title="Set password baru">
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" /></svg>
                         </button>
@@ -504,7 +557,8 @@ export default function LeaderPage() {
           </div>
           <FaceUploader
             value={form.faceTemplates}
-            onChange={(templates) => setForm((prev) => ({ ...prev, faceTemplates: templates }))}
+            fotoUrl={form.fotoWajah}
+            onChange={(templates, fotoUrl) => setForm((prev) => ({ ...prev, faceTemplates: templates, fotoWajah: fotoUrl || prev.fotoWajah }))}
           />
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1.5">Gaji Pokok / bulan <span className="text-rose-500">*</span></label>
@@ -575,6 +629,40 @@ export default function LeaderPage() {
           <p className="text-sm text-slate-600">Atur password baru untuk <span className="font-bold text-slate-800">{resetTarget?.nama}</span>.</p>
           <input type="text" autoFocus value={newPassword} onChange={(e) => setNewPassword(e.target.value)}
             className="w-full px-3.5 py-2.5 text-sm text-slate-900 bg-white border border-slate-250 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/10 focus:border-amber-500 transition" placeholder="Minimal 6 karakter" />
+        </div>
+      </Modal>
+
+      <Modal open={!!faceDetail} onClose={() => setFaceDetail(null)} title="Detail Wajah">
+        <div className="space-y-4">
+          {faceDetail?.fotoWajah ? (
+            <div className="flex justify-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={faceDetail.fotoWajah} alt="Foto wajah" className="w-48 h-48 object-cover rounded-xl border border-slate-200" />
+            </div>
+          ) : (
+            <div className="flex justify-center">
+              <div className="w-48 h-48 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 text-sm">Tidak ada foto</div>
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div>
+              <p className="text-slate-400 text-xs">Nama</p>
+              <p className="font-semibold text-slate-800">{faceDetail?.nama}</p>
+            </div>
+            <div>
+              <p className="text-slate-400 text-xs">Jumlah Template</p>
+              <p className="font-semibold text-slate-800">{faceDetail?.faceTemplates?.length || 0} pose</p>
+            </div>
+            <div>
+              <p className="text-slate-400 text-xs">Terdaftar</p>
+              <p className="font-semibold text-slate-800">{faceDetail?.faceRegisteredAt || '-'}</p>
+            </div>
+            <div>
+              <p className="text-slate-400 text-xs">Status</p>
+              <p className="font-semibold text-emerald-600">✓ Wajah terdaftar</p>
+            </div>
+          </div>
+          <button onClick={() => setFaceDetail(null)} className="w-full px-4 py-2 rounded-xl text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 transition cursor-pointer">Tutup</button>
         </div>
       </Modal>
     </div>

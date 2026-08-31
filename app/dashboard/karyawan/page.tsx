@@ -25,6 +25,7 @@ interface KaryawanRow {
   profileComplete: boolean;
   faceTemplates: number[][];
   fotoWajah?: string;
+  faceRegisteredAt?: string;
 }
 
 const STATUS_OPTIONS = ['Aktif', 'Cuti', 'Non-aktif'];
@@ -58,6 +59,7 @@ const emptyForm = {
   tunjangan: [] as TunjanganItem[],
   jadwalKerja: ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'] as string[],
   faceTemplates: null as number[][] | null,
+  fotoWajah: '',
 };
 
 export default function KaryawanPage() {
@@ -82,6 +84,7 @@ export default function KaryawanPage() {
   const [resetTarget, setResetTarget] = useState<KaryawanRow | null>(null);
   const [newPassword, setNewPassword] = useState('');
   const [resetting, setResetting] = useState(false);
+  const [faceDetail, setFaceDetail] = useState<KaryawanRow | null>(null);
 
   useEffect(() => {
     const unsubUsers = onSnapshot(
@@ -103,6 +106,7 @@ export default function KaryawanPage() {
             profileComplete?: boolean;
             faceTemplates?: number[][] | Record<string, number[]>;
             fotoWajah?: string;
+            faceRegisteredAt?: { toDate?: () => Date };
           };
           return {
             id: d.id,
@@ -120,6 +124,7 @@ export default function KaryawanPage() {
             profileComplete: u.profileComplete ?? false,
             faceTemplates: normalizeFaceTemplates(u.faceTemplates),
             fotoWajah: u.fotoWajah || '',
+            faceRegisteredAt: u.faceRegisteredAt?.toDate?.().toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
           };
         });
         rows.sort((a, b) => a.nama.localeCompare(b.nama));
@@ -187,6 +192,7 @@ export default function KaryawanPage() {
       tunjangan: k.tunjangan,
       jadwalKerja: k.jadwalKerja.length > 0 ? k.jadwalKerja : [...emptyForm.jadwalKerja],
       faceTemplates: k.faceTemplates?.length > 0 ? k.faceTemplates : null,
+      fotoWajah: k.fotoWajah || '',
     });
     setErrors({});
     setModalOpen(true);
@@ -238,7 +244,12 @@ export default function KaryawanPage() {
           tunjangan: form.tunjangan,
           jadwalKerja: form.jadwalKerja,
           profileComplete: !!form.noHp.trim(),
-          ...(toFaceTemplatesMap(form.faceTemplates) ? { faceTemplates: toFaceTemplatesMap(form.faceTemplates) } : {}),
+          ...(toFaceTemplatesMap(form.faceTemplates) ? {
+            faceTemplates: toFaceTemplatesMap(form.faceTemplates),
+            fotoWajah: form.fotoWajah || '',
+            faceRegisteredAt: new Date(),
+            faceRegAllowed: false,
+          } : {}),
         });
         setModalOpen(false);
       } catch (err) {
@@ -269,7 +280,12 @@ export default function KaryawanPage() {
         jadwalKerja: form.jadwalKerja,
         // Nomor HP wajib dilengkapi karyawan saat login pertama di app mereka
         profileComplete: !!form.noHp.trim(),
-        ...(toFaceTemplatesMap(form.faceTemplates) ? { faceTemplates: toFaceTemplatesMap(form.faceTemplates) } : {}),
+        ...(toFaceTemplatesMap(form.faceTemplates) ? {
+          faceTemplates: toFaceTemplatesMap(form.faceTemplates),
+          fotoWajah: form.fotoWajah || '',
+          faceRegisteredAt: new Date(),
+          faceRegAllowed: false,
+        } : {}),
       });
       setModalOpen(false);
     } catch (err: unknown) {
@@ -307,13 +323,16 @@ export default function KaryawanPage() {
   };
 
   const handleResetFace = async (k: KaryawanRow) => {
-    if (!confirm(`Izinkan ${k.nama} registrasi ulang wajah? Setelah ini, karyawan bisa daftar wajah baru sekali, lalu terkunci lagi.`)) return;
+    if (!confirm(`Reset wajah ${k.nama}? Template & foto wajah lama akan dihapus. Karyawan harus daftar wajah baru lagi.`)) return;
     setSaving(true);
     try {
       await updateDocument(COLLECTIONS.USERS, k.id, {
+        faceTemplates: null,
+        fotoWajah: '',
+        faceRegisteredAt: null,
         faceRegAllowed: true,
       });
-      alert(`✓ ${k.nama} diizinkan registrasi ulang wajah.`);
+      alert(`✓ Wajah ${k.nama} di-reset. Karyawan wajib daftar ulang di app.`);
     } catch (err) {
       console.error('reset face error:', err);
       alert('Gagal reset wajah.');
@@ -515,6 +534,18 @@ export default function KaryawanPage() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2">
+                        {k.faceTemplates && k.faceTemplates.length > 0 && (
+                          <button
+                            onClick={() => setFaceDetail(k)}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 transition cursor-pointer"
+                            title="Lihat Detail Wajah"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                          </button>
+                        )}
                         <button
                           onClick={() => openReset(k)}
                           className="p-1.5 rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition cursor-pointer"
@@ -781,7 +812,8 @@ export default function KaryawanPage() {
 
           <FaceUploader
             value={form.faceTemplates}
-            onChange={(templates) => setForm((prev) => ({ ...prev, faceTemplates: templates }))}
+            fotoUrl={form.fotoWajah}
+            onChange={(templates, fotoUrl) => setForm((prev) => ({ ...prev, faceTemplates: templates, fotoWajah: fotoUrl || prev.fotoWajah }))}
           />
 
           <div>
@@ -1038,6 +1070,40 @@ export default function KaryawanPage() {
             />
             <p className="text-[10px] text-slate-400 mt-1">Berikan password baru ini langsung ke karyawan.</p>
           </div>
+        </div>
+      </Modal>
+
+      <Modal open={!!faceDetail} onClose={() => setFaceDetail(null)} title="Detail Wajah">
+        <div className="space-y-4">
+          {faceDetail?.fotoWajah ? (
+            <div className="flex justify-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={faceDetail.fotoWajah} alt="Foto wajah" className="w-48 h-48 object-cover rounded-xl border border-slate-200" />
+            </div>
+          ) : (
+            <div className="flex justify-center">
+              <div className="w-48 h-48 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 text-sm">Tidak ada foto</div>
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div>
+              <p className="text-slate-400 text-xs">Nama</p>
+              <p className="font-semibold text-slate-800">{faceDetail?.nama}</p>
+            </div>
+            <div>
+              <p className="text-slate-400 text-xs">Jumlah Template</p>
+              <p className="font-semibold text-slate-800">{faceDetail?.faceTemplates?.length || 0} pose</p>
+            </div>
+            <div>
+              <p className="text-slate-400 text-xs">Terdaftar</p>
+              <p className="font-semibold text-slate-800">{faceDetail?.faceRegisteredAt || '-'}</p>
+            </div>
+            <div>
+              <p className="text-slate-400 text-xs">Status</p>
+              <p className="font-semibold text-emerald-600">✓ Wajah terdaftar</p>
+            </div>
+          </div>
+          <button onClick={() => setFaceDetail(null)} className="w-full px-4 py-2 rounded-xl text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 transition cursor-pointer">Tutup</button>
         </div>
       </Modal>
     </div>
