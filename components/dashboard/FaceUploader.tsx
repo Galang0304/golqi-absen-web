@@ -154,7 +154,7 @@ export default function FaceUploader({ value, fotoUrl, onChange, disabled }: Pro
       engineRef.current = engine;
       const img = await loadImage(file);
       const embedding = await embeddingFromImage(img, engine);
-      // Simpan 1 template (admin upload 1 pose)
+      // Simpan 1 template (embedding wajah)
       let fotoUrl = '';
       try {
         const formData = new FormData();
@@ -189,11 +189,11 @@ export default function FaceUploader({ value, fotoUrl, onChange, disabled }: Pro
     <div className="border border-slate-200 rounded-xl p-4 space-y-3">
       <div className="flex items-center justify-between">
         <div>
-          <div className="text-xs font-semibold text-slate-600">Foto Wajah (1 pose)</div>
+          <div className="text-xs font-semibold text-slate-600">Foto Wajah</div>
           <div className="text-[10px] text-slate-400">Wajah harus terlihat jelas, menghadap kamera, cahaya cukup.</div>
         </div>
         {value && value.length > 0 && (
-          <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-emerald-50 text-emerald-600">✓ Terdaftar ({value.length} template)</span>
+          <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-emerald-50 text-emerald-600">✓ Terdaftar</span>
         )}
       </div>
 

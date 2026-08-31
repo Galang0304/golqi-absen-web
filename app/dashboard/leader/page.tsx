@@ -6,7 +6,6 @@ import { db, createKaryawanAuthAccount, auth } from '@/lib/firebase';
 import { COLLECTIONS } from '@/lib/firestore-collections';
 import { setDocument, updateDocument, deleteDocument } from '@/lib/firestore-helpers';
 import Modal from '@/components/dashboard/Modal';
-import FaceUploader from '@/components/dashboard/FaceUploader';
 import type { Shift, Outlet } from '@/types';
 
 interface LeaderRow {
@@ -409,7 +408,7 @@ export default function LeaderPage() {
                                 // eslint-disable-next-line @next/next/no-img-element
                                 <img src={k.fotoWajah} alt="Wajah" className="w-4 h-4 rounded object-cover border border-emerald-200" />
                               )}
-                              ✓ Wajah terdaftar ({k.faceTemplates.length} pose)
+                              ✓ Wajah terdaftar
                             </span>
                           ) : (
                             <span className="inline-block mt-1 px-1.5 py-0.5 rounded bg-rose-50 text-rose-500 text-[10px] font-bold">Wajah belum didaftarkan</span>
@@ -555,11 +554,6 @@ export default function LeaderPage() {
             <label className="block text-xs font-semibold text-slate-600 mb-1.5">Nomor HP <span className="text-slate-400 font-normal">(opsional)</span></label>
             <input type="tel" value={form.noHp} onChange={(e) => setField('noHp', e.target.value)} className={inputCls()} placeholder="08xxxxxxxxxx" />
           </div>
-          <FaceUploader
-            value={form.faceTemplates}
-            fotoUrl={form.fotoWajah}
-            onChange={(templates, fotoUrl) => setForm((prev) => ({ ...prev, faceTemplates: templates, fotoWajah: fotoUrl || prev.fotoWajah }))}
-          />
           <div>
             <label className="block text-xs font-semibold text-slate-600 mb-1.5">Gaji Pokok / bulan <span className="text-rose-500">*</span></label>
             <div className="relative">
@@ -650,16 +644,12 @@ export default function LeaderPage() {
               <p className="font-semibold text-slate-800">{faceDetail?.nama}</p>
             </div>
             <div>
-              <p className="text-slate-400 text-xs">Jumlah Template</p>
-              <p className="font-semibold text-slate-800">{faceDetail?.faceTemplates?.length || 0} pose</p>
+              <p className="text-slate-400 text-xs">Status</p>
+              <p className="font-semibold text-emerald-600">✓ Wajah terdaftar</p>
             </div>
             <div>
               <p className="text-slate-400 text-xs">Terdaftar</p>
               <p className="font-semibold text-slate-800">{faceDetail?.faceRegisteredAt || '-'}</p>
-            </div>
-            <div>
-              <p className="text-slate-400 text-xs">Status</p>
-              <p className="font-semibold text-emerald-600">✓ Wajah terdaftar</p>
             </div>
           </div>
           <button onClick={() => setFaceDetail(null)} className="w-full px-4 py-2 rounded-xl text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 transition cursor-pointer">Tutup</button>
