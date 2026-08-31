@@ -376,6 +376,7 @@ export default function LeaderPage() {
                 <th className="px-6 py-4">Shift</th>
                 <th className="px-6 py-4">Gaji/Bln</th>
                 <th className="px-6 py-4">Status</th>
+                <th className="px-6 py-4">Wajah</th>
                 <th className="px-6 py-4 text-right">Aksi</th>
               </tr>
             </thead>
@@ -423,6 +424,28 @@ export default function LeaderPage() {
                       <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider ${
                         k.status === 'Aktif' ? 'bg-emerald-50 text-emerald-600' : k.status === 'Cuti' ? 'bg-amber-50 text-amber-600' : 'bg-slate-100 text-slate-500'
                       }`}>{k.status}</span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <div className="w-9 h-9 rounded-lg bg-slate-50 border border-slate-200 overflow-hidden flex items-center justify-center flex-shrink-0">
+                          {k.fotoWajah ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={k.fotoWajah} alt="Wajah" className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-slate-300 text-sm">😶</span>
+                          )}
+                        </div>
+                        <div className="flex flex-col gap-0.5">
+                          {k.faceTemplates && k.faceTemplates.length > 0 ? (
+                            <>
+                              <span className="text-emerald-600 font-bold text-[11px]">✓ Terdaftar</span>
+                              <button onClick={() => setFaceDetail(k)} className="text-[10px] text-emerald-600 hover:underline text-left cursor-pointer">Lihat Detail →</button>
+                            </>
+                          ) : (
+                            <span className="text-rose-500 font-bold text-[11px]">Belum</span>
+                          )}
+                        </div>
+                      </div>
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex justify-end gap-2">
